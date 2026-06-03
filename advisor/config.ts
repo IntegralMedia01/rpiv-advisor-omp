@@ -31,6 +31,7 @@ export function validateAdvisorEffort(value: unknown): ThinkingLevel | undefined
 }
 
 export function isAdvisorEffortSupported(model: Model<Api>, effort: ThinkingLevel): boolean {
+	if (!model.reasoning) return false;
 	const mapped = model.thinkingLevelMap?.[effort];
 	if (mapped === null) return false;
 	if (effort === "xhigh") return mapped !== undefined;
@@ -61,9 +62,10 @@ export function saveAdvisorConfig(key: string | undefined, effort: ThinkingLevel
 	return saveJsonConfig(ADVISOR_CONFIG_PATH, config);
 }
 
-export function parseModelKey(key: string): { provider: string; modelId: string } | undefined {
+export function parseModelKey(key: unknown): { provider: string; modelId: string } | undefined {
+	if (typeof key !== "string") return undefined;
 	const idx = key.indexOf(":");
-	if (idx < 1) return undefined;
+	if (idx < 1 || idx === key.length - 1) return undefined;
 	return { provider: key.slice(0, idx), modelId: key.slice(idx + 1) };
 }
 
