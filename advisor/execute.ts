@@ -20,12 +20,16 @@ import { ensureUserTailForAdvisor, stripInflightAdvisorCall } from "./context.js
 import { getInventoryMessage } from "./inventory.js";
 import {
 	ERR_ABORTED_DETAIL,
+	ERR_ADVISOR_COOLDOWN_DETAIL,
+	ERR_ADVISOR_IN_FLIGHT_DETAIL,
 	ERR_CALL_ABORTED,
 	ERR_EMPTY_RESPONSE,
 	ERR_EMPTY_RESPONSE_DETAIL,
 	ERR_NO_MODEL,
 	ERR_NO_MODEL_SELECTED,
 	errCallFailed,
+	errAdvisorCooldown,
+	errAdvisorInFlight,
 	errCallThrew,
 	errMisconfigured,
 	errNoApiKey,
@@ -73,6 +77,13 @@ function buildErrorResult(
 	return buildAdvisorResult({ text: userText, effort, advisorLabel, errorMessage });
 }
 
+let advisorInFlight = false;
+let lastAdvisorContextFingerprint: string | undefined;
+
+function advisorContextFingerprint(leafId: string | null, sessionMessageCount: number, branchMessageCount: number): string {
+	return `${leafId ?? "root"}:${sessionMessageCount}:${branchMessageCount}`;
+}
+
 export async function executeAdvisor(
 	ctx: ExtensionContext,
 	pi: ExtensionAPI,
@@ -110,6 +121,19 @@ export async function executeAdvisor(
 	const branchMessages = ensureUserTailForAdvisor(stripInflightAdvisorCall(convertToLlm(sessionMessages)));
 	const inventoryMessage = getInventoryMessage(pi.getAllTools());
 	const messages: Message[] = inventoryMessage ? [inventoryMessage, ...branchMessages] : branchMessages;
+
+	const contextFingerprint = advisorContextFingerprint(
+		ctx.sessionManager.getLeafId(),
+		sessionMessages.length,
+		branchMessages.length,
+	);
+	if (advisorInFlight) {
+		return buildErrorResult(advisorLabel, effort, errAdvisorInFlight(), ERR_ADVISOR_IN_FLIGHT_DETAIL);
+	}
+	if (lastAdvisorContextFingerprint === contextFingerprint) {
+		return buildErrorResult(advisorLabel, effort, errAdvisorCooldown(), ERR_ADVISOR_COOLDOWN_DETAIL);
+	}
+	advisorInFlight = true;
 
 	onUpdate?.({
 		content: [{ type: "text", text: msgConsulting(advisorLabel, effort) }],
@@ -164,6 +188,7 @@ export async function executeAdvisor(
 			});
 		}
 
+		lastAdvisorContextFingerprint = contextFingerprint;
 		return buildAdvisorResult({
 			text: advisorText,
 			effort,
@@ -174,5 +199,7 @@ export async function executeAdvisor(
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		return buildErrorResult(advisorLabel, effort, errCallThrew(message), message);
+	} finally {
+		advisorInFlight = false;
 	}
 }

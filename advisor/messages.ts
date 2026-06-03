@@ -37,6 +37,8 @@ export const ERR_EMPTY_RESPONSE = "Advisor returned no text content.";
 export const ERR_NO_MODEL_SELECTED = "no advisor model selected";
 export const ERR_EMPTY_RESPONSE_DETAIL = "empty response";
 export const ERR_ABORTED_DETAIL = "aborted";
+export const ERR_ADVISOR_IN_FLIGHT_DETAIL = "advisor already running";
+export const ERR_ADVISOR_COOLDOWN_DETAIL = "advisor already consulted for current session state";
 export const ERR_UNKNOWN = "unknown error";
 
 // Errors/messages (parameterized)
@@ -46,6 +48,10 @@ export const errNoApiKeyDetail = (provider: string) => `no API key for ${provide
 export const errCallFailed = (err: string | undefined) => `Advisor call failed: ${err ?? ERR_UNKNOWN}`;
 export const errCallThrew = (msg: string) => `Advisor call threw: ${msg}`;
 export const errSelectionNotFound = (choice: string) => `Advisor selection not found: ${choice}`;
+export const errAdvisorInFlight = () =>
+	"Advisor is already running. Wait for that guidance before consulting again.";
+export const errAdvisorCooldown = () =>
+	"Advisor was already consulted for this session state. Take a concrete research, implementation, or verification step before calling it again.";
 export const errModelUnavailable = (key: string) => `Previously configured advisor model ${key} is no longer available`;
 export const msgAdvisorEnabled = (label: string, effort: ThinkingLevel | undefined) =>
 	`Advisor: ${label}${effort ? `, ${effort}` : ""}`;

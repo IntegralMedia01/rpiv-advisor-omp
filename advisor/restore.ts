@@ -26,10 +26,21 @@ export function __resetAdvisorAnnounced(): void {
 	restoreAnnounced = false;
 }
 
+function clearAdvisorSelection(pi: ExtensionAPI): void {
+	setAdvisorModel(undefined);
+	setAdvisorEffort(undefined);
+	const active = pi.getActiveTools();
+	if (active.includes(ADVISOR_TOOL_NAME)) {
+		pi.setActiveTools(active.filter((n) => n !== ADVISOR_TOOL_NAME));
+	}
+}
+
 export function restoreAdvisorState(ctx: ExtensionContext, pi: ExtensionAPI): void {
 	const config = loadAdvisorConfig();
 
 	setDisabledForModels(validateDisabledForModels(config.disabledForModels));
+	clearAdvisorSelection(pi);
+
 
 	if (!config.modelKey) return;
 

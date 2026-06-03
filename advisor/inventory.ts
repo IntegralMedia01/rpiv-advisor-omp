@@ -4,8 +4,8 @@
  * globalThis-keyed (Symbol.for("rpiv-advisor")) so the cache survives module
  * re-import on /new, /fork, /resume (mirrors rpiv-btw/btw.ts). Single-slot — the
  * Pi tool registry is process-scoped, so per-session keying would be redundant;
- * the cache invalidates only when the set of registered tool names changes. Also
- * exposes the key-sorted JSON serializer (stableStringify) the block is built from.
+ * the cache invalidates when the stable serialized inventory content changes.
+ * Also exposes the key-sorted JSON serializer (stableStringify) the block is built from.
  */
 
 import type { Message } from "@earendil-works/pi-ai";
@@ -63,12 +63,13 @@ function buildInventoryBlock(tools: ToolInfo[]): string {
 export function getInventoryMessage(tools: ToolInfo[]): Message | undefined {
 	if (tools.length === 0) return undefined;
 	const sorted = [...tools].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-	const signature = sorted.map((t) => t.name).join("|");
+	const inventoryBlock = buildInventoryBlock(sorted);
+	const signature = inventoryBlock;
 	const state = getAdvisorRuntimeState();
 	if (state.inventorySignature === signature && state.inventoryMessage) {
 		return state.inventoryMessage;
 	}
-	const text = `## Available Executor Tools\n\n${buildInventoryBlock(sorted)}`;
+	const text = `## Available Executor Tools\n\n${inventoryBlock}`;
 	const message: Message = {
 		role: "user",
 		content: [{ type: "text", text }],

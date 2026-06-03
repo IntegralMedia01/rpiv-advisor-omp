@@ -1,6 +1,6 @@
 {
   "name": "pi-advisor-omp",
-  "version": "1.17.1-omp.1",
+  "version": "1.17.1-omp.3",
   "description": "OMP-compatible fork of @juicesharp/rpiv-advisor.",
   "author": "juicesharp",
   "contributors": [
@@ -28,6 +28,7 @@
     "advisor-ui.ts",
     "fuzzy.ts",
     "prompts/",
+    "README.md",
     "LICENSE"
   ],
   "pi": {
