@@ -8,7 +8,7 @@
 
 import type { ThinkingLevel } from "@earendil-works/pi-ai";
 import { DynamicBorder, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
-import { Container, type SelectItem, SelectList, Spacer, Text } from "@earendil-works/pi-tui";
+import { Container, type SelectItem, SelectList, type SelectListTheme, Spacer, Text } from "@earendil-works/pi-tui";
 import { filterItems, isBackspace, isPrintable } from "./fuzzy.js";
 
 const MAX_VISIBLE_ROWS = 10;
@@ -30,13 +30,24 @@ const EFFORT_HEADER_PROSE =
 	"Choose the reasoning effort level for the advisor. " +
 	"Higher levels produce stronger judgment but use more tokens.";
 
-function selectListTheme(theme: Theme) {
+function selectListTheme(theme: Theme): SelectListTheme {
 	return {
 		selectedPrefix: (t: string) => theme.bg("selectedBg", theme.fg("accent", t)),
 		selectedText: (t: string) => theme.bg("selectedBg", theme.bold(t)),
 		description: (t: string) => theme.fg("muted", t),
 		scrollInfo: (t: string) => theme.fg("dim", t),
 		noMatch: (t: string) => theme.fg("warning", t),
+		symbols: {
+			cursor: theme.nav.cursor,
+			inputCursor: theme.getSymbolPreset() === "ascii" ? "|" : "▏",
+			boxRound: theme.boxRound,
+			boxSharp: theme.boxSharp,
+			table: theme.boxSharp,
+			quoteBorder: theme.md.quoteBorder,
+			hrChar: theme.md.hrChar,
+			colorSwatch: theme.md.colorSwatch,
+			spinnerFrames: theme.getSpinnerFrames("activity"),
+		},
 	};
 }
 
