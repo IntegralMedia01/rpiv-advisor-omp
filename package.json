@@ -2,8 +2,9 @@
   "name": "pi-advisor-omp",
   "version": "1.17.1-omp.3",
   "description": "OMP-compatible fork of @juicesharp/rpiv-advisor.",
-  "author": "juicesharp",
+  "author": "juicesharp (original)",
   "contributors": [
+    "sunnymind369",
     "Integral Media"
   ],
   "license": "MIT",

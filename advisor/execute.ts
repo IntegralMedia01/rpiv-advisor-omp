@@ -17,7 +17,7 @@ import {
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { ensureUserTailForAdvisor, stripInflightAdvisorCall } from "./context.js";
-import { getInventoryMessage } from "./inventory.js";
+import { getInventoryMessage, stableStringify } from "./inventory.js";
 import {
 	ERR_ABORTED_DETAIL,
 	ERR_ADVISOR_COOLDOWN_DETAIL,
@@ -77,11 +77,24 @@ function buildErrorResult(
 	return buildAdvisorResult({ text: userText, effort, advisorLabel, errorMessage });
 }
 
-let advisorInFlight = false;
-let lastAdvisorContextFingerprint: string | undefined;
+const advisorInFlightSessions = new Set<string>();
+const lastAdvisorContextFingerprintBySession = new Map<string, string>();
 
-function advisorContextFingerprint(leafId: string | null, sessionMessageCount: number, branchMessageCount: number): string {
-	return `${leafId ?? "root"}:${sessionMessageCount}:${branchMessageCount}`;
+function advisorSessionKey(ctx: ExtensionContext): string {
+	return ctx.sessionManager.getSessionId() ?? ctx.sessionManager.getSessionFile() ?? "unknown-session";
+}
+
+function hashString(value: string): string {
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < value.length; i++) {
+		hash ^= value.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193);
+	}
+	return (hash >>> 0).toString(16);
+}
+
+function advisorContextFingerprint(leafId: string | null, branchMessages: Message[]): string {
+	return `${leafId ?? "root"}:${branchMessages.length}:${hashString(stableStringify(branchMessages))}`;
 }
 
 export async function executeAdvisor(
@@ -122,18 +135,15 @@ export async function executeAdvisor(
 	const inventoryMessage = getInventoryMessage(pi.getAllTools());
 	const messages: Message[] = inventoryMessage ? [inventoryMessage, ...branchMessages] : branchMessages;
 
-	const contextFingerprint = advisorContextFingerprint(
-		ctx.sessionManager.getLeafId(),
-		sessionMessages.length,
-		branchMessages.length,
-	);
-	if (advisorInFlight) {
+	const sessionKey = advisorSessionKey(ctx);
+	const contextFingerprint = advisorContextFingerprint(ctx.sessionManager.getLeafId(), branchMessages);
+	if (advisorInFlightSessions.has(sessionKey)) {
 		return buildErrorResult(advisorLabel, effort, errAdvisorInFlight(), ERR_ADVISOR_IN_FLIGHT_DETAIL);
 	}
-	if (lastAdvisorContextFingerprint === contextFingerprint) {
+	if (lastAdvisorContextFingerprintBySession.get(sessionKey) === contextFingerprint) {
 		return buildErrorResult(advisorLabel, effort, errAdvisorCooldown(), ERR_ADVISOR_COOLDOWN_DETAIL);
 	}
-	advisorInFlight = true;
+	advisorInFlightSessions.add(sessionKey);
 
 	onUpdate?.({
 		content: [{ type: "text", text: msgConsulting(advisorLabel, effort) }],
@@ -188,7 +198,7 @@ export async function executeAdvisor(
 			});
 		}
 
-		lastAdvisorContextFingerprint = contextFingerprint;
+		lastAdvisorContextFingerprintBySession.set(sessionKey, contextFingerprint);
 		return buildAdvisorResult({
 			text: advisorText,
 			effort,
@@ -200,6 +210,6 @@ export async function executeAdvisor(
 		const message = err instanceof Error ? err.message : String(err);
 		return buildErrorResult(advisorLabel, effort, errCallThrew(message), message);
 	} finally {
-		advisorInFlight = false;
+		advisorInFlightSessions.delete(sessionKey);
 	}
 }

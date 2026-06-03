@@ -60,6 +60,8 @@ Safe trigger policy example:
 }
 ```
 
+
+Trigger guidance is registered when the plugin loads. After editing `guidance.triggerPolicy` by hand, restart or reload OMP before expecting the model prompt to reflect it. Legacy configs using `"auto"` are accepted and treated as `"required"`; new configs should use `"required"` so nobody mistakes it for a runtime hook.
 Configuration is persisted at `~/.config/rpiv-advisor/advisor.json`, matching upstream.
 
 ## Important behavior

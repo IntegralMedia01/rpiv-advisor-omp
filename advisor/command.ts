@@ -5,14 +5,13 @@
  * helpers persist before mutating in-memory state (review I2).
  */
 
-import { getSupportedEfforts, type Api, type Effort as ThinkingLevel, type Model } from "@earendil-works/pi-ai";
+import type { Api, Model, ThinkingLevel } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { SelectItem } from "@earendil-works/pi-tui";
 import { showAdvisorPicker, showEffortPicker } from "../advisor-ui.js";
 import { modelKey, saveAdvisorConfig } from "./config.js";
 import { reconcileAdvisorTool } from "./handlers.js";
 import {
-	ADVISOR_TOOL_NAME,
 	BASE_EFFORT_LEVELS,
 	CHECKMARK,
 	DEFAULT_EFFORT,
@@ -30,6 +29,10 @@ import {
 import { isExecutorBlocked } from "./policy.js";
 import { getAdvisorEffort, getAdvisorModel, setAdvisorEffort, setAdvisorModel } from "./state.js";
 
+function effortSupported(model: Model<Api>, level: ThinkingLevel): boolean {
+	return model.thinkingLevelMap?.[level] !== null;
+}
+
 function buildModelItems(availableModels: Model<Api>[], currentKey: string | undefined): SelectItem[] {
 	const items: SelectItem[] = availableModels.map((m) => {
 		const key = modelKey(m);
@@ -44,9 +47,7 @@ function buildModelItems(availableModels: Model<Api>[], currentKey: string | und
 }
 
 function buildEffortItems(picked: Model<Api>): SelectItem[] {
-	const levels = getSupportedEfforts(picked).includes(XHIGH_EFFORT_LEVEL)
-		? [...BASE_EFFORT_LEVELS, XHIGH_EFFORT_LEVEL]
-		: BASE_EFFORT_LEVELS;
+	const levels = [...BASE_EFFORT_LEVELS, XHIGH_EFFORT_LEVEL].filter((level) => effortSupported(picked, level));
 	return [
 		{ value: OFF_VALUE, label: "off" },
 		...levels.map((level) => ({
@@ -60,7 +61,7 @@ function buildEffortItems(picked: Model<Api>): SelectItem[] {
 // can't strand "model=undefined + tool still registered" (review I2). The strip
 // is unconditional-on-presence (no advisor at all), so it stays inline rather
 // than routing through reconcileAdvisorTool's blocked-conditional path.
-function applyDisable(pi: ExtensionAPI, ctx: ExtensionContext): void {
+async function applyDisable(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	if (!saveAdvisorConfig(undefined, undefined)) {
 		ctx.ui.notify(MSG_PERSIST_FAILED, "error");
 		return;
@@ -69,7 +70,7 @@ function applyDisable(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	setAdvisorEffort(undefined);
 	const active = pi.getActiveTools();
 	if (active.includes(ADVISOR_TOOL_NAME)) {
-		pi.setActiveTools(active.filter((n) => n !== ADVISOR_TOOL_NAME));
+		await pi.setActiveTools(active.filter((n) => n !== ADVISOR_TOOL_NAME));
 	}
 	ctx.ui.notify(MSG_ADVISOR_DISABLED, "info");
 }
@@ -78,12 +79,12 @@ function applyDisable(pi: ExtensionAPI, ctx: ExtensionContext): void {
 // reconcileAdvisorTool (which re-reads the active-tool list post-effort-picker-
 // await), and notify. Silent reconcile — the enable/inactive notify is the
 // single trailing notify call here.
-function applyEnable(
+async function applyEnable(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	picked: Model<Api>,
 	effort: ThinkingLevel | undefined,
-): void {
+): Promise<void> {
 	if (!saveAdvisorConfig(modelKey(picked), effort)) {
 		ctx.ui.notify(MSG_PERSIST_FAILED, "error");
 		return;
@@ -92,7 +93,7 @@ function applyEnable(
 	setAdvisorModel(picked);
 
 	const blocked = isExecutorBlocked(ctx, pi.getThinkingLevel());
-	reconcileAdvisorTool(pi, ctx, { blocked });
+	await reconcileAdvisorTool(pi, ctx, { blocked });
 	ctx.ui.notify(
 		blocked ? msgAdvisorEnabledInactive(modelKey(picked), effort) : msgAdvisorEnabled(modelKey(picked), effort),
 		"info",
@@ -116,7 +117,7 @@ export function registerAdvisorCommand(pi: ExtensionAPI): void {
 			if (!choice) return;
 
 			if (choice === NO_ADVISOR_VALUE) {
-				applyDisable(pi, ctx);
+				await applyDisable(pi, ctx);
 				return;
 			}
 
@@ -139,7 +140,7 @@ export function registerAdvisorCommand(pi: ExtensionAPI): void {
 				effortChoice = effortResult === OFF_VALUE ? undefined : (effortResult as ThinkingLevel);
 			}
 
-			applyEnable(pi, ctx, picked, effortChoice);
+			await applyEnable(pi, ctx, picked, effortChoice);
 		},
 	});
 }

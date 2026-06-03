@@ -21,18 +21,18 @@ interface ReconcileNotify {
 // Strip-or-add the advisor tool to match the blocked state, with an optional
 // notify on each transition. Reads the active-tool list itself. Shared by the
 // three lifecycle handlers and the /advisor command's activate step.
-export function reconcileAdvisorTool(
+export async function reconcileAdvisorTool(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	opts: { blocked: boolean; notify?: ReconcileNotify },
-): void {
+): Promise<void> {
 	const active = pi.getActiveTools();
 	const hasTool = active.includes(ADVISOR_TOOL_NAME);
 	if (opts.blocked && hasTool) {
-		pi.setActiveTools(active.filter((n) => n !== ADVISOR_TOOL_NAME));
+		await pi.setActiveTools(active.filter((n) => n !== ADVISOR_TOOL_NAME));
 		if (opts.notify && ctx.hasUI) ctx.ui.notify(opts.notify.disabled, "info");
 	} else if (!opts.blocked && !hasTool) {
-		pi.setActiveTools([...active, ADVISOR_TOOL_NAME]);
+		await pi.setActiveTools([...active, ADVISOR_TOOL_NAME]);
 		if (opts.notify && ctx.hasUI) ctx.ui.notify(opts.notify.restored, "info");
 	}
 }
@@ -43,11 +43,11 @@ export function registerAdvisorBeforeAgentStart(pi: ExtensionAPI): void {
 		if (!advisor) {
 			const active = pi.getActiveTools();
 			if (active.includes(ADVISOR_TOOL_NAME)) {
-				pi.setActiveTools(active.filter((n) => n !== ADVISOR_TOOL_NAME));
+				await pi.setActiveTools(active.filter((n) => n !== ADVISOR_TOOL_NAME));
 			}
 			return;
 		}
-		reconcileAdvisorTool(pi, ctx, { blocked: isExecutorBlocked(ctx, pi.getThinkingLevel()) });
+		await reconcileAdvisorTool(pi, ctx, { blocked: isExecutorBlocked(ctx, pi.getThinkingLevel()) });
 	});
 }
 
@@ -61,7 +61,7 @@ export function registerModelSelectHandler(pi: ExtensionAPI): void {
 		const advisor = getAdvisorModel();
 		if (!advisor) return;
 
-		reconcileAdvisorTool(pi, ctx, {
+		await reconcileAdvisorTool(pi, ctx, {
 			blocked: isModelBlocked(event.model, pi.getThinkingLevel()),
 			notify: {
 				disabled: `Advisor disabled for ${modelKey(event.model)}`,
@@ -80,7 +80,7 @@ export function registerThinkingLevelSelectHandler(pi: ExtensionAPI): void {
 		// for undefined), so the MSG_ADVISOR_DISABLED fallback is unreachable — it
 		// only keeps the disabled string total without a non-null assertion on the model.
 		const model = ctx?.model;
-		reconcileAdvisorTool(pi, ctx, {
+		await reconcileAdvisorTool(pi, ctx, {
 			blocked: isModelBlocked(model, event.level),
 			notify: {
 				disabled: model ? `Advisor disabled for ${modelKey(model)}` : MSG_ADVISOR_DISABLED,
