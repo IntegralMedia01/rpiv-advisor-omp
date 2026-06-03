@@ -1,0 +1,43 @@
+{
+  "name": "pi-advisor-omp",
+  "version": "1.17.1-omp.1",
+  "description": "OMP-compatible fork of @juicesharp/rpiv-advisor.",
+  "author": "juicesharp",
+  "contributors": [
+    "Integral Media"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "omp",
+    "advisor"
+  ],
+  "homepage": "https://github.com/jjphonsot/rpiv-advisor-omp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jjphonsot/rpiv-advisor-omp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jjphonsot/rpiv-advisor-omp/issues"
+  },
+  "files": [
+    "index.ts",
+    "advisor/",
+    "advisor-ui.ts",
+    "fuzzy.ts",
+    "prompts/",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  }
+}
