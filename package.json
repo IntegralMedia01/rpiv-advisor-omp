@@ -14,13 +14,13 @@
     "omp",
     "advisor"
   ],
-  "homepage": "https://github.com/jjphonsot/rpiv-advisor-omp",
+  "homepage": "https://github.com/sunnymind369/rpiv-advisor-omp",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jjphonsot/rpiv-advisor-omp.git"
+    "url": "git+https://github.com/sunnymind369/rpiv-advisor-omp.git"
   },
   "bugs": {
-    "url": "https://github.com/jjphonsot/rpiv-advisor-omp/issues"
+    "url": "https://github.com/sunnymind369/rpiv-advisor-omp/issues"
   },
   "files": [
     "index.ts",
