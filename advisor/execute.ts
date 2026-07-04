@@ -6,7 +6,7 @@
  * buildAdvisorResult so the envelope is built in exactly one place.
  */
 
-import type { StopReason, Usage } from "@earendil-works/pi-ai";
+import type { Api, Model, StopReason, Usage } from "@earendil-works/pi-ai";
 import { completeSimple, type Message, type ThinkingLevel } from "@earendil-works/pi-ai";
 import {
 	type AgentToolResult,
@@ -46,6 +46,34 @@ interface AdvisorDetails {
 	usage?: Usage;
 	stopReason?: StopReason;
 	errorMessage?: string;
+}
+
+type AdvisorModel = Model<Api>;
+
+type ResolvedAdvisorAuth =
+	| { ok: true; apiKey?: string; headers?: Record<string, string> }
+	| { ok: false; error: string };
+
+interface AdvisorModelRegistry {
+	getApiKeyAndHeaders?: (model: AdvisorModel) => Promise<ResolvedAdvisorAuth>;
+	getApiKey?: (model: AdvisorModel) => Promise<string | undefined>;
+	getApiKeyForProvider?: (provider: string) => Promise<string | undefined>;
+}
+
+async function resolveAdvisorAuth(ctx: ExtensionContext, advisor: AdvisorModel): Promise<ResolvedAdvisorAuth> {
+	const registry = ctx.modelRegistry as unknown as AdvisorModelRegistry;
+	if (typeof registry.getApiKeyAndHeaders === "function") {
+		return registry.getApiKeyAndHeaders(advisor);
+	}
+	if (typeof registry.getApiKey === "function") {
+		const apiKey = await registry.getApiKey(advisor);
+		return { ok: true, apiKey, headers: {} };
+	}
+	if (typeof registry.getApiKeyForProvider === "function") {
+		const apiKey = await registry.getApiKeyForProvider(advisor.provider);
+		return { ok: true, apiKey, headers: {} };
+	}
+	return { ok: false, error: "Model registry cannot resolve advisor auth" };
 }
 
 // Single result-envelope builder — every executeAdvisor branch and the pre-call
@@ -129,7 +157,7 @@ export async function executeAdvisor(
 	}
 	const advisorLabel = `${advisor.provider}:${advisor.id}`;
 
-	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(advisor);
+	const auth = await resolveAdvisorAuth(ctx, advisor);
 	if (!auth.ok) {
 		return buildErrorResult(advisorLabel, effort, errMisconfigured(advisorLabel, auth.error), auth.error);
 	}
