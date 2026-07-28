@@ -1,74 +1,175 @@
-# pi-advisor-omp
+# OMP Consultant Task Agent
 
-OMP-compatible fork of `@juicesharp/rpiv-advisor`.
+A native Oh My Pi task agent for deliberate, evidence-backed second opinions.
 
-## What it does
+This version does **not** use OMP's Advisor runtime and does **not** need an extension/plugin. The main agent calls `task` with `agent: "consultant"` only when a checkpoint review is useful.
 
-`pi-advisor-omp` adds an `advisor()` tool and `/advisor` command. The tool sends the current conversation branch to a configured stronger reviewer model through a direct side-call, with tools disabled for the reviewer.
+## Behavior
 
-It is not a before/after-every-action hook. The advisor should be used at phase boundaries where second judgment matters:
+The consultant is:
 
-- after enough context has been gathered, before committing to a plan or architecture;
-- before the first write/edit/destructive command on multi-file, model-routing, plugin-loading, data, security, or other high-stakes work;
-- when stuck after repeated failures or contradictory evidence;
-- before declaring substantive work done, after durable output and focused verification exist;
-- before irreversible external-system, deployment, destructive git/filesystem, auth, provider, or public API decisions.
+- **on demand** — no background model calls and no review on every turn;
+- **blocking** — its result returns inline before the main agent continues, even when async tasks are enabled;
+- **read-only** — it may inspect code, diffs, LSP/AST results, git history, and web sources, but cannot edit or spawn another agent;
+- **strong by default** — it resolves through OMP's `@slow` model role and defaults to high reasoning;
+- **structured** — it returns one `plan`, `correction`, or `stop` outcome with evidence, next steps, confidence, and focused verification.
 
-## Claude Code ideas carried into this fork
+The task-agent definition is [` .omp/agents/consultant.md`](.omp/agents/consultant.md).
 
-The trigger design borrows Claude Code's fork/subagent shape without copying its runtime model:
+## Install globally
 
-- escalation is model-invoked instead of blindly automatic;
-- context is branch-copied for cache locality;
-- tool definitions stay disabled for the reviewer to avoid recursive tool chains;
-- trigger policy values are prompt guidance, not lifecycle hooks: `required` means the executor is instructed to call `advisor()` at that gate, but OMP does not force-run the tool before an action;
-- prompt guidance makes the reviewer a challenge reviewer, not a stricter linter;
-- runtime guards reject nested advisor calls and repeated successful calls for the same session state.
+### Windows PowerShell
 
-## Configuration
-
-Run `/advisor` in OMP and select a reviewer model and effort. For JJ's OMP setup, the recommended reviewer is:
-
-```json
-{
-  "modelKey": "openai-codex:gpt-5.5",
-  "effort": "xhigh"
-}
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
-Safe trigger policy example:
+### Windows WSL, Linux, or macOS
+
+```bash
+sh scripts/install.sh
+```
+
+Both installers respect `PI_CODING_AGENT_DIR`. Without that override, they install to:
+
+```text
+~/.omp/agent/agents/consultant.md
+```
+
+Then open `/agents` and press `Ctrl+R`, or restart OMP. Confirm that `consultant` appears as an available agent.
+
+### Manual installation
+
+Copy:
+
+```text
+.omp/agents/consultant.md
+```
+
+to either:
+
+- user-wide: `~/.omp/agent/agents/consultant.md`;
+- project-only: `<project>/.omp/agents/consultant.md`.
+
+A project agent overrides a user agent with the same exact name.
+
+## Disable the native OMP Advisor
+
+For the current session:
+
+```text
+/advisor off
+```
+
+Also set **Enable Advisor** to off in `/settings` so future sessions do not start it. The consultant task agent is independent of `advisor.enabled` and `modelRoles.advisor`.
+
+## Choose the consultant model
+
+The definition defaults to:
+
+```yaml
+model: "@slow"
+thinking-level: high
+```
+
+To use a different model, open `/agents`, select `consultant`, and press `Enter` to set its model override. At invocation time, `effort: "hi"` maps to the highest reasoning level supported by the selected model.
+
+## Call it from the main agent
+
+OMP task agents start with a blank conversation. The main agent must pass a complete, self-contained decision packet rather than assuming the consultant can see the parent transcript.
+
+A natural instruction to the main agent is:
+
+> Before proceeding, use the `consultant` task agent to challenge this decision. Give it the objective, proposed approach, material evidence, constraints, and the exact question it must resolve.
+
+With task batching enabled, the equivalent tool shape is:
 
 ```json
 {
-  "disabledForModels": [
-    { "model": "openai-codex:gpt-5.5", "minEffort": "high" }
-  ],
-  "guidance": {
-    "triggerPolicy": {
-      "mode": "phase-gated",
-      "planning": "remind",
-      "beforeFirstEdit": "remind",
-      "stuck": "required",
-      "preDone": "remind",
-      "highRisk": "required",
-      "maxPerTurn": 1,
-      "maxPerPhase": 1
+  "context": "# Goal\nDeliver the requested change safely.\n\n# Constraints\nPreserve the user's explicit requirements and avoid unrelated work.",
+  "tasks": [
+    {
+      "name": "ConsultDecision",
+      "agent": "consultant",
+      "effort": "hi",
+      "task": "# Objective\n...\n\n# Decision needed\n...\n\n# Proposed direction\n...\n\n# Evidence\n...\n\n# Constraints\n...\n\n# Acceptance\nReturn one evidence-backed recommendation before implementation continues."
     }
-  },
-  "modelKey": "openai-codex:gpt-5.5",
-  "effort": "xhigh"
+  ]
 }
 ```
 
+With task batching disabled:
 
-Trigger guidance is registered when the plugin loads. After editing `guidance.triggerPolicy` by hand, restart or reload OMP before expecting the model prompt to reflect it. Legacy configs using `"auto"` are accepted and treated as `"required"`; new configs should use `"required"` so nobody mistakes it for a runtime hook.
-Configuration is persisted at `~/.config/rpiv-advisor/advisor.json`, matching upstream.
+```json
+{
+  "name": "ConsultDecision",
+  "agent": "consultant",
+  "effort": "hi",
+  "task": "# Objective\n...\n\n# Decision needed\n...\n\n# Proposed direction\n...\n\n# Evidence\n...\n\n# Constraints\n...\n\n# Acceptance\nReturn one evidence-backed recommendation before implementation continues."
+}
+```
 
-## Important behavior
+Because the agent declares `blocking: true`, the main agent receives the consultation result in the same `task` call.
 
-- `/advisor` configures the reviewer model; it does not itself review work.
-- `advisor()` takes no parameters.
-- The reviewer receives the current branch context plus tool inventory, but `tools: []` prevents it from calling tools.
-- The plugin blocks advisor availability for configured executor model/effort combinations.
-- A nested advisor call returns an error instead of launching another reviewer call.
-- After a successful advisor response, a second advisor call for the same session state returns a cooldown error; take a concrete research, implementation, or verification step first.
+## Recommended decision packet
+
+Give the consultant these sections whenever they are relevant:
+
+```markdown
+# Objective
+What the user ultimately needs.
+
+# Decision needed
+The exact plan, architecture, diagnosis, risk, or completion claim to judge.
+
+# Proposed direction
+What the main agent intends to do and why.
+
+# Evidence
+Files, symbols, diffs, command results, errors, tests, links, and unresolved contradictions.
+
+# Constraints
+Explicit user instructions, repository rules, compatibility requirements, safety limits, and non-goals.
+
+# Acceptance
+What a useful consultation must decide and what proof is required.
+```
+
+For large material, save it to a file and pass a `local://...` reference rather than pasting it into the task.
+
+## When to use it
+
+Use the consultant:
+
+- after enough investigation, before committing to a consequential plan or architecture;
+- before the first mutation on multi-file, auth, security, data, deployment, provider-routing, or public-API work;
+- after repeated non-converging attempts or contradictory evidence;
+- after durable implementation and focused checks, before declaring high-impact work complete;
+- before irreversible git, filesystem, deployment, publishing, or external-system actions.
+
+Do not call it for routine reads, obvious mechanical steps, every edit, trivial answers, or immediately after a previous consultation without new evidence.
+
+## Output contract
+
+The consultant returns:
+
+- `outcome`: `plan`, `correction`, or `stop`;
+- `guidance`: the concise recommendation;
+- `next_steps`: ordered actions for the main agent;
+- `confidence`: `0.0` to `1.0`;
+- optional `evidence`, `assumptions`, and `verification`.
+
+It raises `correction` or `stop` only when it can identify the failing premise, inspected evidence, impact, and better next action. When the main agent is on track, it returns `plan` without inventing criticism.
+
+## Difference from the old plugin
+
+| Old extension | Native task agent |
+|---|---|
+| Registered `advisor()` and `/advisor` | Selected through the normal `task` tool |
+| Direct side-call with copied parent branch | Blank child session with a self-contained decision packet |
+| Reviewer had no tools | Consultant can independently inspect the workspace read-only |
+| Plugin-level global state and cooldowns | Normal OMP child-session lifecycle and artifacts |
+| Custom model/auth path | Native task-agent model resolution, telemetry, output schema, and `agent://` / `history://` observability |
+| Could add prompt overhead to every primary turn | Exists in the task-agent list and runs only when selected |
+
+The previous TypeScript extension source remains in the repository for migration history, but the package metadata no longer registers it as an OMP extension on this conversion branch.
