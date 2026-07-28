@@ -14,7 +14,7 @@ The consultant is:
 - **strong by default** — it resolves through OMP's `@slow` model role and defaults to high reasoning;
 - **structured** — it returns one `plan`, `correction`, or `stop` outcome with evidence, next steps, confidence, and focused verification.
 
-The task-agent definition is [` .omp/agents/consultant.md`](.omp/agents/consultant.md).
+The task-agent definition is [`.omp/agents/consultant.md`](.omp/agents/consultant.md).
 
 ## Install globally
 
