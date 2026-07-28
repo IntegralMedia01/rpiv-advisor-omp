@@ -1,8 +1,9 @@
 {
-  "name": "pi-advisor-omp",
-  "version": "1.17.1-omp.3",
-  "description": "OMP-compatible fork of @juicesharp/rpiv-advisor.",
-  "author": "juicesharp (original)",
+  "name": "omp-consultant-task-agent",
+  "version": "2.0.0",
+  "description": "Native OMP task agent for deliberate, evidence-backed second opinions.",
+  "private": true,
+  "author": "juicesharp (original consultant concept)",
   "contributors": [
     "sunnymind369",
     "Integral Media"
@@ -10,41 +11,28 @@
   "license": "MIT",
   "type": "module",
   "keywords": [
-    "pi-package",
-    "pi-extension",
     "omp",
-    "advisor"
+    "task-agent",
+    "consultant",
+    "reviewer"
   ],
-  "homepage": "https://github.com/sunnymind369/rpiv-advisor-omp",
+  "homepage": "https://github.com/IntegralMedia01/rpiv-advisor-omp",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sunnymind369/rpiv-advisor-omp.git"
+    "url": "git+https://github.com/IntegralMedia01/rpiv-advisor-omp.git"
   },
   "bugs": {
-    "url": "https://github.com/sunnymind369/rpiv-advisor-omp/issues"
+    "url": "https://github.com/IntegralMedia01/rpiv-advisor-omp/issues"
   },
   "files": [
-    "index.ts",
-    "advisor/",
-    "advisor-ui.ts",
-    "fuzzy.ts",
-    "prompts/",
+    ".omp/agents/consultant.md",
+    "scripts/",
     "README.md",
     "LICENSE"
   ],
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
-  },
   "scripts": {
-    "test": "vitest run --pool=forks --maxWorkers=1",
-    "test:watch": "vitest"
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*"
+    "test:legacy": "vitest run --pool=forks --maxWorkers=1",
+    "test:legacy:watch": "vitest"
   },
   "devDependencies": {
     "@earendil-works/pi-ai": "^0.74.0",
